@@ -11,7 +11,7 @@ Minecraft RTX Switcher is a Windows Forms application built on .NET Framework th
 
 
 ## GUI preview
-![{A4F55B6D-7FC3-4228-8F8F-6F98061CE291}](https://github.com/user-attachments/assets/36fb1050-4619-4080-b243-6eab26b988cf)
+![{D2E3DEA7-FA0E-4FB3-8F48-8067C44E05DC}](https://github.com/user-attachments/assets/eaddda24-96a3-445a-b7a4-d0d84894d99b)
 
 
 
