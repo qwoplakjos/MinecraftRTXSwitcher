@@ -118,6 +118,7 @@ namespace MinecraftRTXSwitcher
         {
             if (!_initialized)
             {
+
                 NvAPI_Initialize = NvAPI_Delegate<NvAPI_InitializeDelegate>(NvAPI_Initialize_ID);
                 Check(NvAPI_Initialize());
 

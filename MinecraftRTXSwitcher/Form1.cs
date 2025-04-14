@@ -43,6 +43,12 @@ namespace MinecraftRTXSwitcher
                 }
                 catch (Exception ex)
                 {
+                    if (ex.Message == "NVAPI Error: -160")
+                    {
+                        MessageBox.Show("Minecraft profile doesn't exist! Please create a profile in NVIDIA app.");
+                        return;
+                    }
+
                     MessageBox.Show(ex.Message);
                 }
             });
