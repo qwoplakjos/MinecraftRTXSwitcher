@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -6,58 +7,61 @@ namespace MinecraftRTXSwitcher
 {
     static partial class NvidiaDriverEditor
     {
-        private const string ProfileName = "Minecraft";
+        #region Constants
+        private const string PROFILE_NAME = "Minecraft";
 
-        private const uint NvAPI_Initialize_ID = 0x0150E828;
-        private const uint NvAPI_DRS_CreateSession_ID = 0x0694D52E;
-        private const uint NvAPI_DRS_LoadSettings_ID = 0x375DBD6B;
-        private const uint NvAPI_DRS_FindProfileByName_ID = 0x7E4A9A0B;
-        private const uint NvAPI_DRS_SetSetting_ID = 0x577DD202;
-        private const uint NvAPI_DRS_SaveSettings_ID = 0xFCBC7E14;
-        private const uint NvAPI_DRS_DestroySession_ID = 0x0DAD9CFF8;
-        private const uint NvAPI_EnumPhysicalGPUs_ID = 0xE5AC921F;
-        private const uint NvAPI_GetFullName_ID = 0xCEEE8E9F;
-        private const uint NvAPI_GetSetting_ID = 0x73BF8338;
+        // NVAPI Function IDs
+        private const uint NVAPI_INITIALIZE_ID = 0x0150E828;
+        private const uint NVAPI_DRS_CREATE_SESSION_ID = 0x0694D52E;
+        private const uint NVAPI_DRS_LOAD_SETTINGS_ID = 0x375DBD6B;
+        private const uint NVAPI_DRS_FIND_PROFILE_BY_NAME_ID = 0x7E4A9A0B;
+        private const uint NVAPI_DRS_SET_SETTING_ID = 0x577DD202;
+        private const uint NVAPI_DRS_SAVE_SETTINGS_ID = 0xFCBC7E14;
+        private const uint NVAPI_DRS_DESTROY_SESSION_ID = 0x0DAD9CFF8;
+        private const uint NVAPI_ENUM_PHYSICAL_GPUS_ID = 0xE5AC921F;
+        private const uint NVAPI_GET_FULL_NAME_ID = 0xCEEE8E9F;
+        private const uint NVAPI_GET_SETTING_ID = 0x73BF8338;
+        private const uint NVAPI_GET_ERROR_MESSAGE_ID = 0x6C2D048C;
+        #endregion
 
+        #region NVAPI Interface
         [DllImport("nvapi64", CharSet = CharSet.Auto, CallingConvention = CallingConvention.Cdecl)]
-        public static extern IntPtr nvapi_QueryInterface(uint id);
+        private static extern IntPtr nvapi_QueryInterface(uint id);
+        #endregion
 
+        #region Delegates
         private delegate int NvAPI_InitializeDelegate();
-        private static NvAPI_InitializeDelegate NvAPI_Initialize;
-
         private delegate int NvAPI_DRS_CreateSessionDelegate(out IntPtr handle);
-        private static NvAPI_DRS_CreateSessionDelegate NvAPI_DRS_CreateSession;
-
         private delegate int NvAPI_DRS_LoadSettingsDelegate(IntPtr handle);
-        private static NvAPI_DRS_LoadSettingsDelegate NvAPI_DRS_LoadSettings;
-
         private delegate int NvAPI_DRS_FindProfileByNameDelegate(IntPtr handle, NvapiUnicodeString profileName, out IntPtr profileHandle);
-        private static NvAPI_DRS_FindProfileByNameDelegate NvAPI_DRS_FindProfileByName;
-
         private delegate int NvAPI_DRS_SetSettingDelegate(IntPtr handle, IntPtr profileHandle, ref NvdrsSetting setting);
-        private static NvAPI_DRS_SetSettingDelegate NvAPI_DRS_SetSetting;
-
         private delegate int NvAPI_DRS_SaveSettingsDelegate(IntPtr handle);
-        private static NvAPI_DRS_SaveSettingsDelegate NvAPI_DRS_SaveSettings;
-
         private delegate int NvAPI_DRS_DestroySessionDelegate(IntPtr handle);
-        private static NvAPI_DRS_DestroySessionDelegate NvAPI_DRS_DestroySession;
-
         private delegate int NvAPI_EnumPhysicalGPUsDelegate(IntPtr[] gpuHandles, ref uint gpuCount);
-        private static NvAPI_EnumPhysicalGPUsDelegate NvAPI_EnumPhysicalGPUs;
-
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate int NvAPI_GPU_GetFullNameDelegate(IntPtr gpuHandle, StringBuilder name);
-        private static NvAPI_GPU_GetFullNameDelegate NvAPI_GPU_GetFullName;
-
-
         private delegate int NvAPI_GetSettingDelegate(IntPtr sessionHandle, IntPtr profileHandle, Nvapi settingID, ref NvdrsSetting setting);
+        private delegate int NvAPI_GetErrorMessageDelegate(int status, StringBuilder message);
+        #endregion
+
+        #region Function Pointers
+        private static NvAPI_InitializeDelegate NvAPI_Initialize;
+        private static NvAPI_DRS_CreateSessionDelegate NvAPI_DRS_CreateSession;
+        private static NvAPI_DRS_LoadSettingsDelegate NvAPI_DRS_LoadSettings;
+        private static NvAPI_DRS_FindProfileByNameDelegate NvAPI_DRS_FindProfileByName;
+        private static NvAPI_DRS_SetSettingDelegate NvAPI_DRS_SetSetting;
+        private static NvAPI_DRS_SaveSettingsDelegate NvAPI_DRS_SaveSettings;
+        private static NvAPI_DRS_DestroySessionDelegate NvAPI_DRS_DestroySession;
+        private static NvAPI_EnumPhysicalGPUsDelegate NvAPI_EnumPhysicalGPUs;
+        private static NvAPI_GPU_GetFullNameDelegate NvAPI_GPU_GetFullName;
         private static NvAPI_GetSettingDelegate NvAPI_GetSetting;
+        private static NvAPI_GetErrorMessageDelegate NvAPI_GetErrorMessage;
+        #endregion
 
         private static bool _initialized;
-
         public static event EventHandler<string> Output;
 
+        #region Enums and Structs
         private enum Nvapi : uint
         {
             RTX_DXR_Enabled = 0X00DE429A
@@ -105,35 +109,52 @@ namespace MinecraftRTXSwitcher
             public uint CurrentValue;
             public NvapiUnicodeString CurrentString;
         }
+        #endregion
 
-        private static void Check(int status)
+        #region Helper Methods
+        private static void LogMessage(string message)
+        {
+            Output?.Invoke(null, message);
+        }
+
+        private static void CheckApiStatus(int status)
         {
             if (status != 0)
             {
-                throw new Exception(String.Format("NVAPI Error: {0}", status));
+                StringBuilder message = new StringBuilder(512);
+                if (NvAPI_GetErrorMessage != null)
+                {
+                    NvAPI_GetErrorMessage(status, message);
+                    throw new Exception($"NVAPI Error: {status} Details: {message}");
+                }
+                else
+                {
+                    throw new Exception($"NVAPI Error: {status}");
+                }
             }
         }
 
         private static void Initialize()
         {
-            if (!_initialized)
-            {
+            if (_initialized) return;
 
-                NvAPI_Initialize = NvAPI_Delegate<NvAPI_InitializeDelegate>(NvAPI_Initialize_ID);
-                Check(NvAPI_Initialize());
+            // Load and initialize API functions
+            NvAPI_Initialize = GetNvApiDelegate<NvAPI_InitializeDelegate>(NVAPI_INITIALIZE_ID);
+            CheckApiStatus(NvAPI_Initialize());
 
-                NvAPI_DRS_CreateSession = NvAPI_Delegate<NvAPI_DRS_CreateSessionDelegate>(NvAPI_DRS_CreateSession_ID);
-                NvAPI_DRS_LoadSettings = NvAPI_Delegate<NvAPI_DRS_LoadSettingsDelegate>(NvAPI_DRS_LoadSettings_ID);
-                NvAPI_DRS_FindProfileByName = NvAPI_Delegate<NvAPI_DRS_FindProfileByNameDelegate>(NvAPI_DRS_FindProfileByName_ID);
-                NvAPI_DRS_SetSetting = NvAPI_Delegate<NvAPI_DRS_SetSettingDelegate>(NvAPI_DRS_SetSetting_ID);
-                NvAPI_DRS_SaveSettings = NvAPI_Delegate<NvAPI_DRS_SaveSettingsDelegate>(NvAPI_DRS_SaveSettings_ID);
-                NvAPI_DRS_DestroySession = NvAPI_Delegate<NvAPI_DRS_DestroySessionDelegate>(NvAPI_DRS_DestroySession_ID);
-                NvAPI_EnumPhysicalGPUs = NvAPI_Delegate<NvAPI_EnumPhysicalGPUsDelegate>(NvAPI_EnumPhysicalGPUs_ID);
-                NvAPI_GPU_GetFullName = NvAPI_Delegate<NvAPI_GPU_GetFullNameDelegate>(NvAPI_GetFullName_ID);
-                NvAPI_GetSetting = NvAPI_Delegate<NvAPI_GetSettingDelegate>(NvAPI_GetSetting_ID);
+            // Load other function pointers
+            NvAPI_DRS_CreateSession = GetNvApiDelegate<NvAPI_DRS_CreateSessionDelegate>(NVAPI_DRS_CREATE_SESSION_ID);
+            NvAPI_DRS_LoadSettings = GetNvApiDelegate<NvAPI_DRS_LoadSettingsDelegate>(NVAPI_DRS_LOAD_SETTINGS_ID);
+            NvAPI_DRS_FindProfileByName = GetNvApiDelegate<NvAPI_DRS_FindProfileByNameDelegate>(NVAPI_DRS_FIND_PROFILE_BY_NAME_ID);
+            NvAPI_DRS_SetSetting = GetNvApiDelegate<NvAPI_DRS_SetSettingDelegate>(NVAPI_DRS_SET_SETTING_ID);
+            NvAPI_DRS_SaveSettings = GetNvApiDelegate<NvAPI_DRS_SaveSettingsDelegate>(NVAPI_DRS_SAVE_SETTINGS_ID);
+            NvAPI_DRS_DestroySession = GetNvApiDelegate<NvAPI_DRS_DestroySessionDelegate>(NVAPI_DRS_DESTROY_SESSION_ID);
+            NvAPI_EnumPhysicalGPUs = GetNvApiDelegate<NvAPI_EnumPhysicalGPUsDelegate>(NVAPI_ENUM_PHYSICAL_GPUS_ID);
+            NvAPI_GPU_GetFullName = GetNvApiDelegate<NvAPI_GPU_GetFullNameDelegate>(NVAPI_GET_FULL_NAME_ID);
+            NvAPI_GetSetting = GetNvApiDelegate<NvAPI_GetSettingDelegate>(NVAPI_GET_SETTING_ID);
+            NvAPI_GetErrorMessage = GetNvApiDelegate<NvAPI_GetErrorMessageDelegate>(NVAPI_GET_ERROR_MESSAGE_ID);
 
-                _initialized = true;
-            }
+            _initialized = true;
         }
 
         private static uint MakeVersion<T>(uint version) where T : struct
@@ -142,14 +163,26 @@ namespace MinecraftRTXSwitcher
             return (uint)sizeOfT | (version << 16);
         }
 
-        private static bool CheckForRTX()
+        private static T GetNvApiDelegate<T>(uint id) where T : class
+        {
+            IntPtr ptr = nvapi_QueryInterface(id);
+            if (ptr != IntPtr.Zero)
+            {
+                return (T)(object)Marshal.GetDelegateForFunctionPointer(ptr, typeof(T));
+            }
+            return null;
+        }
+        #endregion
+
+        #region GPU Detection and RTX Settings
+        private static bool HasRtxGpu()
         {
             uint gpuCount = 0;
             IntPtr[] gpuHandles = new IntPtr[32];
             int status = NvAPI_EnumPhysicalGPUs(gpuHandles, ref gpuCount);
             if (status != 0)
             {
-                Output?.Invoke(null, "Failed to get GPU handles.");
+                LogMessage("Failed to get GPU handles.");
                 return false;
             }
 
@@ -159,13 +192,13 @@ namespace MinecraftRTXSwitcher
                 status = NvAPI_GPU_GetFullName(gpuHandles[i], gpuName);
                 if (status != 0)
                 {
-                    Output?.Invoke(null, string.Format("Failed to get GPU #{0} full name.", i));
+                    LogMessage($"Failed to get GPU #{i} full name.");
                 }
                 else
                 {
                     string gpuModel = gpuName.ToString().TrimEnd('\0');
+                    LogMessage(gpuModel);
 
-                    Output?.Invoke(null, gpuModel);
                     if (gpuModel.Contains("RTX"))
                     {
                         return true;
@@ -175,67 +208,100 @@ namespace MinecraftRTXSwitcher
             return false;
         }
 
+        private static bool IsRtxSettingAlreadySet(IntPtr sessionHandle, IntPtr profileHandle, bool enableRtx)
+        {
+            try
+            {
+                var setting = new NvdrsSetting
+                {
+                    Version = MakeVersion<NvdrsSetting>(1),
+                    SettingId = Nvapi.RTX_DXR_Enabled
+                };
+
+                CheckApiStatus(NvAPI_GetSetting(sessionHandle, profileHandle, Nvapi.RTX_DXR_Enabled, ref setting));
+
+                bool currentlyEnabled = setting.CurrentValue == 0x00000001;
+                bool alreadySet = (enableRtx && currentlyEnabled) || (!enableRtx && !currentlyEnabled);
+
+                if (alreadySet)
+                {
+                    LogMessage($"RTX is already {(enableRtx ? "enabled" : "disabled")}!");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                string msg = ex.Message.Split(new string[] { "Details: " }, StringSplitOptions.None).LastOrDefault();
+                if (msg == "NVAPI_PROFILE_NOT_FOUND") return false;
+
+                throw;
+            }
+            return false;
+        }
+        #endregion
+
+        #region Public API
+        /// <summary>
+        /// Changes the RTX setting for Minecraft
+        /// </summary>
+        /// <param name="enable">True to enable RTX, false to disable</param>
         public static void ChangeSetting(bool enable)
         {
             Initialize();
 
-            if (!CheckForRTX())
+            if (!HasRtxGpu())
             {
-                Output?.Invoke(null, "This app only works on with RTX GPUs!");
+                LogMessage("This app only works with RTX GPUs!");
                 return;
             }
 
-            Output?.Invoke(null, "RTX GPU Found!");
+            LogMessage("RTX GPU Found!");
 
-            Check(NvAPI_DRS_CreateSession(out IntPtr sessionHandle));
-            Check(NvAPI_DRS_LoadSettings(sessionHandle));
-            Check(NvAPI_DRS_FindProfileByName(sessionHandle, new NvapiUnicodeString(ProfileName), out IntPtr profileHandle));
+            IntPtr sessionHandle = IntPtr.Zero;
 
-            Output?.Invoke(null, "Minecraft driver profile found!");
-
-            var old = new NvdrsSetting
+            try
             {
-                Version = MakeVersion<NvdrsSetting>(1),
-                SettingId = Nvapi.RTX_DXR_Enabled
-            };
+                // Create session and find profile
+                CheckApiStatus(NvAPI_DRS_CreateSession(out sessionHandle));
+                CheckApiStatus(NvAPI_DRS_LoadSettings(sessionHandle));
+                CheckApiStatus(NvAPI_DRS_FindProfileByName(sessionHandle, new NvapiUnicodeString(PROFILE_NAME), out IntPtr profileHandle));
 
-            Check(NvAPI_GetSetting(sessionHandle, profileHandle, Nvapi.RTX_DXR_Enabled, ref old));
+                LogMessage("Minecraft driver profile found!");
 
-            bool alreadySet = (enable && old.CurrentValue == 0x00000001) || (!enable && old.CurrentValue == 0x00000000);
+                if (IsRtxSettingAlreadySet(sessionHandle, profileHandle, enable))
+                {
+                    return;
+                }
 
-            if (alreadySet)
-            {
-                Output?.Invoke(null, $"RTX is already {(enable ? "enabled" : "disabled")}!");
-                Check(NvAPI_DRS_DestroySession(sessionHandle));
-                return;
+                // Update RTX setting
+                NvdrsSetting setting = new NvdrsSetting
+                {
+                    Version = MakeVersion<NvdrsSetting>(1),
+                    SettingId = Nvapi.RTX_DXR_Enabled,
+                    SettingType = 0,
+                    SettingLocation = 0,
+                    CurrentValue = (uint)(enable ? 0x00000001 : 0x00000000),
+                    PredefinedValue = (uint)(enable ? 0x00000001 : 0x00000000)
+                };
+
+                CheckApiStatus(NvAPI_DRS_SetSetting(sessionHandle, profileHandle, ref setting));
+                CheckApiStatus(NvAPI_DRS_SaveSettings(sessionHandle));
+
+                LogMessage($"Successfully {(enable ? "enabled" : "disabled")} RTX!");
             }
-
-
-            NvdrsSetting setting = new NvdrsSetting
+            catch (Exception ex)
             {
-                Version = MakeVersion<NvdrsSetting>(1),
-                SettingId = Nvapi.RTX_DXR_Enabled,
-                SettingType = 0,
-                SettingLocation = 0,
-                CurrentValue = (uint)(enable ? 0x00000001 : 0x00000000),
-                PredefinedValue = (uint)(enable ? 0x00000001 : 0x00000000)
-            };
-
-            Check(NvAPI_DRS_SetSetting(sessionHandle, profileHandle, ref setting));
-            Check(NvAPI_DRS_SaveSettings(sessionHandle));
-            Check(NvAPI_DRS_DestroySession(sessionHandle));
-
-            Output?.Invoke(null, "Successfully " + (enable ? "enabled" : "disabled") + " RTX!");
-        }
-
-        private static T NvAPI_Delegate<T>(uint id) where T : class
-        {
-            IntPtr ptr = nvapi_QueryInterface(id);
-            if (ptr != IntPtr.Zero)
-            {
-                return (T)(object)Marshal.GetDelegateForFunctionPointer(ptr, typeof(T));
+                LogMessage($"Error: {ex.Message}");
+                throw;
             }
-            return null;
+            finally
+            {
+                if (sessionHandle != IntPtr.Zero)
+                {
+                    try { NvAPI_DRS_DestroySession(sessionHandle); } catch { }
+                }
+            }
         }
+        #endregion
     }
 }

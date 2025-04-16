@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -32,6 +28,19 @@ namespace MinecraftRTXSwitcher
             }));
         }
 
+        private void HandleException(string message)
+        {
+            var msg = message.Split(new string[] { "Details: " }, StringSplitOptions.None).LastOrDefault();
+
+            if (msg == "NVAPI_PROFILE_NOT_FOUND")
+            {
+                MessageBox.Show("Minecraft profile doesn't exist! Please re-install NVIDIA GPU driver!");
+                return;
+            }
+
+            MessageBox.Show(message);
+        }
+
         private void enableButton_Click(object sender, EventArgs e)
         {
             richTextBox1.Clear();
@@ -43,13 +52,7 @@ namespace MinecraftRTXSwitcher
                 }
                 catch (Exception ex)
                 {
-                    if (ex.Message == "NVAPI Error: -160")
-                    {
-                        MessageBox.Show("Minecraft profile doesn't exist! Please create a profile in NVIDIA app.");
-                        return;
-                    }
-
-                    MessageBox.Show(ex.Message);
+                    HandleException(ex.Message);
                 }
             });
         }
@@ -65,7 +68,7 @@ namespace MinecraftRTXSwitcher
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message);
+                    HandleException(ex.Message);
                 }
             });
         }
