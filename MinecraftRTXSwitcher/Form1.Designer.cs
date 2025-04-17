@@ -44,7 +44,7 @@
             this.disableButton.TabIndex = 0;
             this.disableButton.Text = "Disable RTX";
             this.disableButton.UseVisualStyleBackColor = true;
-            this.disableButton.Click += new System.EventHandler(this.disableButton_Click);
+            this.disableButton.Click += new System.EventHandler(this.DisableButton_Click);
             // 
             // enableButton
             // 
@@ -54,7 +54,7 @@
             this.enableButton.TabIndex = 1;
             this.enableButton.Text = "Enable RTX";
             this.enableButton.UseVisualStyleBackColor = true;
-            this.enableButton.Click += new System.EventHandler(this.enableButton_Click);
+            this.enableButton.Click += new System.EventHandler(this.EnableButton_Click);
             // 
             // richTextBox1
             // 

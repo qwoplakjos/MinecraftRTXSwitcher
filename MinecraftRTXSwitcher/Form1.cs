@@ -18,9 +18,11 @@ namespace MinecraftRTXSwitcher
         {
             Invoke(new Action(() =>
             {
-
-                if (e.Contains("Successfully") && e.Contains("enabled")) richTextBox1.SelectionColor = Color.Green;
-                else if (e.Contains("Successfully") && e.Contains("disabled")) richTextBox1.SelectionColor = Color.Red;
+                if (e.Contains("Successfully"))
+                {
+                    if (e.Contains("enabled")) richTextBox1.SelectionColor = Color.Green;
+                    else if (e.Contains("disabled")) richTextBox1.SelectionColor = Color.Red;
+                }
                 else if (e.Contains("already")) richTextBox1.SelectionColor = Color.Olive;
 
                 richTextBox1.AppendText(e + "\n");
@@ -41,7 +43,7 @@ namespace MinecraftRTXSwitcher
             MessageBox.Show(message);
         }
 
-        private void enableButton_Click(object sender, EventArgs e)
+        private void EnableButton_Click(object sender, EventArgs e)
         {
             richTextBox1.Clear();
             Task.Run(() =>
@@ -57,7 +59,7 @@ namespace MinecraftRTXSwitcher
             });
         }
 
-        private void disableButton_Click(object sender, EventArgs e)
+        private void DisableButton_Click(object sender, EventArgs e)
         {
             richTextBox1.Clear();
             Task.Run(() =>
